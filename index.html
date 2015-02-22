@@ -1,14 +1,19 @@
 <!DOCTYPE html>
 <html>
-<body>
-
-<h1>Example map</h1>
-<script type="text/javascript" src="https://www.google.com/jsapi?autoload={'modules':[{'name':'visualization','version':'1.1','packages':['geochart']}]}"></script>
-<div id="regions_div" style="width: 900px; height: 500px;"></div>
-
-<script type="text/javascript" src="https://www.google.com/jsapi?autoload={'modules':[{'name':'visualization','version':'1.1','packages':['geochart']}]}"></script>
-<script type="js/map_renderer.js" src=""></script>
-
-</body>
+  <head>
+    <style>
+      #map-canvas {
+        width: 500px;
+        height: 400px;
+      }
+    </style>
+    <script src="https://maps.googleapis.com/maps/api/js"></script>
+    <script src="js/map_renderer.js">
+      renderMap()
+    </script>
+  </head>
+  <body>
+    <div id="map-canvas"></div>
+  </body>
 </html>
 
