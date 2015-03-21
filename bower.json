@@ -1,0 +1,22 @@
+{
+  "name": "nedn.github.io",
+  "version": "0.0.0",
+  "homepage": "https://github.com/nedn/nedn.github.io",
+  "authors": [
+    "nedn"
+  ],
+  "license": "No",
+  "private": true,
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "polymer": "Polymer/polymer#~0.5.5",
+    "core-elements": "Polymer/core-elements#~0.5.5",
+    "paper-elements": "Polymer/paper-elements#~0.5.5"
+  }
+}
