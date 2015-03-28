@@ -7,32 +7,34 @@
     <script src="bower_components/webcomponentsjs/webcomponents.js"></script>
 
     <link rel="import" href="bower_components/core-toolbar/core-toolbar.html">
+    <link rel="import" href="bower_components/paper-tabs/paper-tabs.html">
     <link rel="import" href="bower_components/core-icon-button/core-icon-button.html">
     <link rel="import" href="bower_components/core-media-query/core-media-query.html">
 
-    <style shim-shadowdom>
-
-      body {
-        font-family: sans-serif;
-      }
-
-      core-toolbar {
-        background-color: #8B7D6B;
-      }
-
-      core-toolbar.dark-theme {
-        background-color: #7D25AC;
-        color: #f1f1f1;
-        fill: #f1f1f1;
-      }
-
-    </style>
+    <style shim-shadowdom> </style>
+    <link type="text/css" rel="stylesheet" href="css/style.css">
 
   </head>
   <body unresolved>
+    <div id="container">
     <core-toolbar>
-    <span flex>Tin tối</span>
-    </core-toolbar>
+      <h1>
+        <a href="/tintoi.html">Tin tối</a>
+      </h1>
+      <paper-tabs selected="0" link>
+        <paper-tab>
+          <a href="#latest" horizontal center-center layout flex inline>tin mới</a>
+        </paper-tab>
+        <paper-tab>
+          <a href="#login" horizontal center-center layout flex inline>gửi tin</a>
+        </paper-tab>
+        </paper-tabs>
+      </core-toolbar>
+
+      <div id="content">
+      </div>
+
+    </div>
 
   </body>
 </body>
