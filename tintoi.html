@@ -4,23 +4,26 @@
     <meta charset="utf-8">
     <title>Tin tối</title>
 
-    <script src="bower_components/webcomponentsjs/webcomponents.js"></script>
+    <script src="bower_components/webcomponentsjs/webcomponents-lite.js"></script>
 
-    <link rel="import" href="bower_components/core-toolbar/core-toolbar.html">
+    <link rel="import" href="bower_components/paper-toolbar/paper-toolbar.html">
     <link rel="import" href="bower_components/paper-tabs/paper-tabs.html">
-    <link rel="import" href="bower_components/core-icon-button/core-icon-button.html">
-    <link rel="import" href="bower_components/core-media-query/core-media-query.html">
+    <link rel="import" href="bower_components/paper-icon-button/paper-icon-button.html">
+    <link rel="import" href="/bower_components/iron-flex-layout/iron-flex-layout.html">
+    <link rel="import" href="components/article-element.html">
+
 
     <style shim-shadowdom> </style>
-    <link type="text/css" rel="stylesheet" href="css/style.css">
+    <link type="text/css" rel="stylesheet" href="css/tintoi.css">
 
   </head>
-  <body unresolved>
-    <div id="container">
-    <core-toolbar>
-      <h1>
+  <body>
+    
+    <!-- Toolbar -->
+    <paper-toolbar>
+      <span title>
         <a href="/tintoi.html">Tin tối</a>
-      </h1>
+      </span>
       <paper-tabs selected="0" link>
         <paper-tab>
           <a href="#latest" horizontal center-center layout flex inline>tin mới</a>
@@ -28,14 +31,19 @@
         <paper-tab>
           <a href="#login" horizontal center-center layout flex inline>gửi tin</a>
         </paper-tab>
+        <paper-tab>
+          <a href="#replies" horizontal center-center layout flex inline>còm</a>
+        </paper-tab>
         </paper-tabs>
-      </core-toolbar>
+      </paper-toolbar>
+      
 
-      <div id="content">
-      </div>
-
+    <!-- Articles -->
+    <div articles-list class="layout vertical center">
+        <article-element title="12 Angry Men" url="https://youtu.be/Kwd2dYZbjVw" poster="nedn"></article-element>
+        <article-element title="I Fooled Millions Into Thinking Chocolate Helps Weight Loss. Here's How." url="http://io9.com/i-fooled-millions-into-thinking-chocolate-helps-weight-1707251800" poster="thaidn"></article-element>
     </div>
-
+    
   </body>
 </body>
 </html>
