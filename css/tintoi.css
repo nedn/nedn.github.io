@@ -7,10 +7,18 @@ paper-toolbar a {
   color: #fff;
 }
 
+logo {
+    padding-left: 10px;
+}
+
 paper-tab a {
   font-size: 16px;
-  text-align: center;
   color: #aaa;
+  box-shadow: none;
+}
+
+paper-tabs[alignBottom] {
+  box-shadow: 0px -2px 6px rgba(0, 0, 0, 0.15);
 }
 
 article-element {
