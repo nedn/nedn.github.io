@@ -3,14 +3,6 @@ a {
   color:#666;
 }
 
-body {
-    --paper-toolbar-background: #00bcd4;
-}
-
-paper-toolbar {
-    background-color: #00bcd4;
-}
-
 paper-toolbar a {
   color: #fff;
 }
