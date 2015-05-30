@@ -7,7 +7,7 @@
 <dom-module id="article-element">
     <style>
     :host {
-        padding: 16px;
+        padding: 0;
         margin: 10px;
         border: 1px solid #bbb;
         @apply(--layout-horizontal);
@@ -15,11 +15,31 @@
     
     [article] {
         @apply(--layout-horizontal --layout-center);
+        padding: 16px;
     }
     
     [post-info] {
         font-size: 14px;
         color: #999;
+    }
+    
+    [stats] {
+        @apply(--layout-vertical);
+        border-left: 1px solid #bbb;
+    }
+    
+    [card] {
+      padding: 4px;
+      width:50px;
+      text-align: center;
+      vertical-align: middle;
+      @apply(--layout-flex);
+      border-bottom: 1px solid #bbb;
+
+    }
+    
+    [comment] {
+        border-bottom: 0;
     }
         
     </style>
@@ -30,9 +50,12 @@
             <span>{{poster}}</span>
             </div>
         </div>
-        <div title>
-            
-        </div>   
+        <div class="flex"></div>
+        <div stats>
+            <div card upvote>3 hay</div>
+            <div card downvote>2 dở</div>
+            <div card comment>4 còm</div>
+        </div>
     </template>
 </dom-module>
 
