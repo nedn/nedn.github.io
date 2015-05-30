@@ -7,7 +7,6 @@
 <dom-module id="article-element">
     <style>
     :host {
-        height: 60px;
         padding: 16px;
         margin: 10px;
         border: 1px solid #bbb;
@@ -15,8 +14,12 @@
     }
     
     [article] {
-
         @apply(--layout-horizontal --layout-center);
+    }
+    
+    [title-bar] {
+        text-overflow: ellipsis;
+        overflow: hidden;
     }
         
     </style>
