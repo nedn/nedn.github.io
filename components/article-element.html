@@ -17,20 +17,18 @@
         @apply(--layout-horizontal --layout-center);
     }
     
-    [title-bar] {
-        text-overflow: ellipsis;
-        overflow: hidden;
+    [post-info] {
+        font-size: 14px;
+        color: #999;
     }
         
     </style>
     <template>
         <div article>
-            <div title-bar>
-                <h3>
-                    <a href="{{url}}">{{title}}</a>
-                </h3>
+            <h3><a href="{{url}}">{{title}}</a></h3>
+            <div post-info>Gửi bởi 
+            <span>{{poster}}</span>
             </div>
-            <div flex></div>
         </div>
         <div title>
             
