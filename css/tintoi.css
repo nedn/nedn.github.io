@@ -1,0 +1,24 @@
+body {
+  font-family: Roboto, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  margin: 0;
+}
+
+a {
+  text-decoration:none;
+  color:#666;
+}
+
+paper-toolbar a {
+  color: #fff;
+}
+
+paper-tab a {
+  font-size: 16px;
+  text-align: center;
+  color: #aaa;
+}
+
+article-element {
+    width: 70%;
+    background-color: #FDFDF0;
+}

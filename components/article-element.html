@@ -1,0 +1,47 @@
+<link rel="import" href="/bower_components/polymer/polymer.html">
+<link rel="import" href="/bower_components/iron-icons/iron-icons.html">
+<link rel="import" href="/bower_components/paper-button/paper-button.html">
+<link rel="import" href="/bower_components/paper-input/paper-input.html">
+<link rel="import" href="/bower_components/iron-flex-layout/iron-flex-layout.html">
+
+<dom-module id="article-element">
+    <style>
+    :host {
+        height: 60px;
+        padding: 16px;
+        margin: 10px;
+        border: 1px solid #bbb;
+        @apply(--layout-horizontal);
+    }
+    
+    [article] {
+
+        @apply(--layout-horizontal --layout-center);
+    }
+        
+    </style>
+    <template>
+        <div article>
+            <div title-bar>
+                <h3>
+                    <a href="{{url}}">{{title}}</a>
+                </h3>
+            </div>
+            <div flex></div>
+        </div>
+        <div title>
+            
+        </div>   
+    </template>
+</dom-module>
+
+<script>
+  Polymer({
+    is: 'article-element',
+    properties: {
+      title: String,
+      url: String,
+      poster: String
+    }
+  });
+</script>
