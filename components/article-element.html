@@ -16,8 +16,8 @@
     [article] {
         @apply(--layout-horizontal --layout-center);
         padding: 16px;
-        width: 300px;
     }
+    
     
     [post-info] {
         font-size: 14px;
@@ -47,7 +47,10 @@
     </style>
     <template>
         <div article>
-            <h3><a href="{{url}}">{{title}}</a></h3>
+            <a href="{{url}}" class="layout wrap inline">
+                <span>{{title}}</span>
+                <div domain>&nbsp(<span>{{url_domain}}</span>)</div>
+            </a>
             <div post-info>Gửi bởi 
             <span>{{poster}}</span>
             </div>
@@ -64,6 +67,14 @@
 <script>
   Polymer({
     is: 'article-element',
+    ready: function() {
+      this.url_domain = this._getDomainOfURI(this.url);
+    },
+    _getDomainOfURI: function(uri) {
+        var parser = document.createElement('a');
+        parser.href = uri;
+        return parser.host;
+    },
     properties: {
       title: String,
       url: String,
