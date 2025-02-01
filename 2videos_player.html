@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Side-by-Side Video Player</title>
+<style>
+  body {
+    font-family: sans-serif;
+  }
+  .controls-container {
+    margin-bottom: 10px;
+    text-align: center;
+  }
+  .video-size-label {
+    margin-right: 10px;
+  }
+  .video-container {
+    display: flex;
+    justify-content: space-around;
+    align-items: flex-start;
+    margin-bottom: 20px;
+  }
+  .video-player {
+    width: 48%; /* Initial width, will be controlled by slider */
+    text-align: center;
+    box-sizing: border-box; /* Make sure padding/border doesn't affect width */
+  }
+  .video-title {
+    margin-bottom: 10px;
+    font-size: 1.5em;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 5px;
+  }
+  .video-title:focus {
+    outline: none;
+    border-bottom: 2px solid blue;
+  }
+  .video-timer {
+    margin-top: 5px;
+    font-size: 1.5em;
+    margin-bottom: 10px;
+  }
+  video {
+    width: 100%;
+    max-width: 100%;
+    display: block;
+    box-sizing: border-box; /* Make sure padding/border doesn't affect video width */
+  }
+  #playButton {
+    display: block;
+    margin: 20px auto;
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+  }
+  #videoSizeSlider {
+    width: 200px;
+  }
+</style>
+</head>
+<body>
+
+  <h1>Side-by-Side Video Player</h1>
+
+  <div class="controls-container">
+    <label for="videoSizeSlider" class="video-size-label">Video Size:</label>
+    <input type="range" id="videoSizeSlider" min="20" max="95" value="48">
+  </div>
+
+  <div class="video-container">
+    <div class="video-player" id="videoPlayer1"> <!-- Added IDs for debugging -->
+      <h1 class="video-title" id="video1Title" contenteditable="true">Video 1 Title</h1>
+      <input type="file" id="video1File" accept="video/*">
+      <video id="video1" controls></video>
+      <h1 class="video-timer" id="video1Timer">00:00</h1>
+    </div>
+
+    <div class="video-player" id="videoPlayer2"> <!-- Added IDs for debugging -->
+      <h1 class="video-title" id="video2Title" contenteditable="true">Video 2 Title</h1>
+      <input type="file" id="video2File" accept="video/*">
+      <video id="video2" controls></video>
+      <h1 class="video-timer" id="video2Timer">00:00</h1>
+    </div>
+  </div>
+
+  <button id="playButton">Play Both</button>
+
+  <script>
+    const video1 = document.getElementById('video1');
+    const video2 = document.getElementById('video2');
+    const video1File = document.getElementById('video1File');
+    const video2File = document.getElementById('video2File');
+    const video1TitleElement = document.getElementById('video1Title');
+    const video2TitleElement = document.getElementById('video2Title');
+    const video1TimerDisplay = document.getElementById('video1Timer');
+    const video2TimerDisplay = document.getElementById('video2Timer');
+    const playButton = document.getElementById('playButton');
+    const videoPlayers = document.querySelectorAll('.video-player');
+    const videoSizeSlider = document.getElementById('videoSizeSlider');
+
+    let timerInterval1;
+    let timerInterval2;
+    let isPlaying = false;
+
+    // Function to format time in MM:SS
+    function formatTime(time) {
+      const minutes = Math.floor(time / 60);
+      const seconds = Math.floor(time % 60);
+      return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+
+    // Function to update timer for video 1
+    function updateTimer1() {
+      video1TimerDisplay.textContent = formatTime(video1.currentTime);
+    }
+
+    // Function to update timer for video 2
+    function updateTimer2() {
+      video2TimerDisplay.textContent = formatTime(video2.currentTime);
+    }
+
+    // Event listener for video 1 file input
+    video1File.addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (file) {
+        video1.src = URL.createObjectURL(file);
+        video1.load();
+      }
+    });
+
+    // Event listener for video 2 file input
+    video2File.addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (file) {
+        video2.src = URL.createObjectURL(file);
+        video2.load();
+      }
+    });
+
+    // Event listener for play button
+    playButton.addEventListener('click', function() {
+      if (!isPlaying) {
+        // Start timers BEFORE playing videos
+        timerInterval1 = setInterval(updateTimer1, 1000);
+        timerInterval2 = setInterval(updateTimer2, 1000);
+
+        video1.play();
+        video2.play();
+        playButton.textContent = 'Pause Both';
+        isPlaying = true;
+
+      } else {
+        video1.pause();
+        video2.pause();
+        playButton.textContent = 'Play Both';
+        isPlaying = false;
+
+        // Stop timers
+        clearInterval(timerInterval1);
+        clearInterval(timerInterval2);
+      }
+    });
+
+    // Optional: Stop timers and reset play button when videos end
+    video1.addEventListener('ended', function() {
+      clearInterval(timerInterval1);
+      if (video2.ended) {
+        playButton.textContent = 'Play Both';
+        isPlaying = false;
+      }
+    });
+    video2.addEventListener('ended', function() {
+      clearInterval(timerInterval2);
+      if (video1.ended) {
+        playButton.textContent = 'Play Both';
+        isPlaying = false;
+      }
+    });
+
+    // Optional: Pause other video when one video is paused manually using video controls
+    video1.addEventListener('pause', function() {
+      if (isPlaying && !playButton.matches(':focus')) {
+        video2.pause();
+        playButton.textContent = 'Play Both';
+        isPlaying = false;
+        clearInterval(timerInterval1);
+        clearInterval(timerInterval2);
+      }
+    });
+    video2.addEventListener('pause', function() {
+      if (isPlaying && !playButton.matches(':focus')) {
+        video1.pause();
+        playButton.textContent = 'Play Both';
+        isPlaying = false;
+        clearInterval(timerInterval1);
+        clearInterval(timerInterval2);
+      }
+    });
+    video1.addEventListener('play', function() {
+      if (!isPlaying && !playButton.matches(':focus')) {
+        video2.play();
+        playButton.textContent = 'Pause Both';
+        isPlaying = true;
+        timerInterval1 = setInterval(updateTimer1, 1000);
+        timerInterval2 = setInterval(updateTimer2, 1000);
+      }
+    });
+    video2.addEventListener('play', function() {
+      if (!isPlaying && !playButton.matches(':focus')) {
+        video1.play();
+        playButton.textContent = 'Pause Both';
+        isPlaying = true;
+        timerInterval1 = setInterval(updateTimer1, 1000);
+        timerInterval2 = setInterval(updateTimer2, 1000);
+      }
+    });
+
+    // Event listener for video size slider
+    videoSizeSlider.addEventListener('input', function() {
+      const sizePercentage = videoSizeSlider.value;
+      console.log(`Slider value: ${sizePercentage}`); // Debugging log
+      videoPlayers.forEach(player => {
+        console.log(`Setting width of player: ${player.id} to ${sizePercentage}%`); // Debugging log
+        player.style.width = `${sizePercentage}%`;
+      });
+    });
+
+  </script>
+
+</body>
+</html>
