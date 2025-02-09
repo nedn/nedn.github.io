@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Gemini HTML Generator</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            background-color: #222; /* Dark background */
+            color: #eee; /* Light text */
+            margin: 20px;
+        }
+
+        .config-box {
+            background-color: #333;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .config-box h2, .preview-box h2, .chat-box h2 {
+            margin-top: 0;
+            color: #ddd;
+        }
+
+        .config-box label, .revision-selector label {
+            display: block;
+            margin-bottom: 5px;
+            color: #ccc;
+        }
+
+        .config-box input[type="password"], .config-box select, #user-input, .revision-selector select {
+            width: calc(100% - 20px); /* Adjust width for padding */
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #555;
+            background-color: #444;
+            color: #eee;
+            border-radius: 4px;
+        }
+
+        .main-container {
+            display: flex;
+            gap: 20px; /* Spacing between chat and preview boxes */
+        }
+
+        .chat-box, .preview-box {
+            background-color: #333;
+            padding: 20px;
+            border-radius: 8px;
+            flex: 1; /* Equal width for chat and preview */
+            min-width: 300px; /* Minimum width to prevent collapsing */
+        }
+
+        .chat-history {
+            height: 300px; /* Fixed height for chat history, adjust as needed */
+            overflow-y: auto; /* Scrollable chat history */
+            border: 1px solid #555;
+            background-color: #444;
+            padding: 10px;
+            margin-bottom: 10px;
+            color: #eee;
+            border-radius: 4px;
+        }
+
+        .chat-input-area {
+            display: flex;
+            gap: 10px;
+        }
+
+        #user-input {
+            flex: 1; /* Input field takes remaining space */
+        }
+
+        #send-button {
+            padding: 10px 15px;
+            background-color: #555;
+            color: #eee;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        #send-button:hover {
+            background-color: #666;
+        }
+
+        .rendered-html {
+            background-color: #eee; /* White background for rendered HTML */
+            color: #333; /* Dark text for rendered HTML */
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 4px;
+            overflow: auto; /* Scroll if HTML content is too long */
+            height: 300px; /* Match chat history height or adjust */
+        }
+
+        .revision-selector {
+            margin-bottom: 10px;
+        }
+
+        .revision-selector select {
+            width: auto; /* Adjust to content width */
+        }
+    </style>
+</head>
+<body>
+    <div class="config-box">
+        <h2>Model Configuration</h2>
+        <label for="api-key">Gemini API Key:</label>
+        <input type="password" id="api-key" placeholder="Enter your API key">
+        <label for="model-select">Select Model:</label>
+        <select id="model-select">
+            <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+            <option value="gemini-2.0-flash-lite-preview-02-05">Gemini 2.0 Flash-Lite Preview 02-05</option>
+            <option value="gemini-2.0-pro-exp-02-05">Gemini 2.0 Pro Experimental 02-05</option>
+            <option value="gemini-2.0-flash-thinking-exp-01-21">Gemini 2.0 Flash Thinking Experimental 01-21</option>
+        </select>
+    </div>
+
+    <div class="main-container">
+        <div class="chat-box">
+            <div id="chat-history" class="chat-history">
+                <!-- Chat messages will be displayed here -->
+            </div>
+            <div class="chat-input-area">
+                <input type="text" id="user-input" placeholder="Type your HTML generation request...">
+                <button id="send-button">Send</button>
+            </div>
+        </div>
+
+        <div class="preview-box">
+            <h2>Rendered HTML Preview</h2>
+            <div class="revision-selector">
+                <label for="revision-select">Select Revision:</label>
+                <select id="revision-select">
+                    <option value="0">Current Revision</option>
+                    <!-- Revisions will be added dynamically -->
+                </select>
+            </div>
+            <div id="rendered-html" class="rendered-html">
+                <!-- Rendered HTML will be displayed here -->
+                <p>HTML output will appear here after generation.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const apiKeyInput = document.getElementById('api-key');
+            const modelSelect = document.getElementById('model-select');
+            const userInput = document.getElementById('user-input');
+            const sendButton = document.getElementById('send-button');
+            const chatHistoryDiv = document.getElementById('chat-history');
+            const renderedHtmlDiv = document.getElementById('rendered-html');
+            const revisionSelect = document.getElementById('revision-select');
+
+            let chatMessages = []; // Array to store chat history
+            let htmlRevisions = []; // Array to store generated HTML revisions
+
+            sendButton.addEventListener('click', async () => {
+                const apiKey = apiKeyInput.value;
+                const model = modelSelect.value;
+                const userMessage = userInput.value;
+
+                if (!apiKey) {
+                    alert('Please enter your Gemini API key.');
+                    return;
+                }
+
+                if (!userMessage.trim()) {
+                    return; // Don't send empty messages
+                }
+
+                // Add user message to chat history (only user message for now)
+                addMessageToChat('user', userMessage);
+                userInput.value = ''; // Clear input field
+
+                try {
+                    const aiResponse = await generateHTMLWithGemini(apiKey, model, userMessage); // Pass userMessage only, system prompt is handled inside
+                    if (aiResponse && aiResponse.textResponse) { // Check if aiResponse and textResponse are valid
+                        const chatAnswer = extractChatAnswer(aiResponse.textResponse);
+                        const htmlCode = extractHTMLContent(aiResponse.textResponse);
+
+                        if (chatAnswer) {
+                            addMessageToChat('ai', chatAnswer);
+                        } else {
+                            addMessageToChat('ai', 'No chat answer received from AI.');
+                        }
+
+                        if (htmlCode) {
+                            renderHTML(htmlCode);
+                            saveHTMLRevision(htmlCode);
+                            updateRevisionSelector();
+                        } else {
+                            renderHTML("<p>No HTML code found in AI response.</p>"); // Handle cases where AI doesn't return HTML
+                        }
+                    } else if (aiResponse && aiResponse.error) { // Handle API errors returned in aiResponse.error
+                        addMessageToChat('error', `Gemini API Error: ${aiResponse.error}`);
+                        renderHTML("<p>Error rendering HTML due to API error.</p>");
+                    } else {
+                        addMessageToChat('error', 'Failed to get a valid response from Gemini AI.');
+                        renderHTML("<p>Error rendering HTML - invalid AI response.</p>");
+                    }
+                } catch (error) {
+                    console.error('Error communicating with Gemini API:', error);
+                    addMessageToChat('error', `Failed to communicate with Gemini AI: ${error.message}`); // Display fetch/network error
+                    renderHTML("<p>Error rendering HTML. Check console.</p>"); // Indicate rendering error
+                }
+            });
+
+            revisionSelect.addEventListener('change', () => {
+                const selectedRevisionIndex = parseInt(revisionSelect.value);
+                if (selectedRevisionIndex >= 0 && selectedRevisionIndex < htmlRevisions.length) {
+                    renderHTML(htmlRevisions[selectedRevisionIndex]);
+                } else if (selectedRevisionIndex === 0) { // "Current Revision" - render latest
+                    if (htmlRevisions.length > 0) {
+                        renderHTML(htmlRevisions[htmlRevisions.length - 1]);
+                    } else {
+                        renderHTML("<p>No HTML generated yet.</p>");
+                    }
+                }
+            });
+
+
+            async function generateHTMLWithGemini(apiKey, model, userMessage) {
+                const geminiApiEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+                const systemPrompt = `You are an AI assistant specialized in generating single-page HTML content. When responding to user requests, please provide your output in two sections, clearly separated.
+
+First, provide a concise chat answer to the user's request. Mark the beginning of the chat answer with '[CHAT_ANSWER_START]' and the end with '[CHAT_ANSWER_END]'.
+
+Second, provide the single-page HTML code you generated. Mark the beginning of the HTML code with '[HTML_START]' and the end with '[HTML_END]'.`;
+
+
+                const prompt = [
+                    {
+                        role: 'system',
+                        parts: [{ text: systemPrompt }]
+                    },
+                    {
+                        role: 'user',
+                        parts: [{ text: userMessage }]
+                    }
+                ];
+
+                const requestBody = {
+                    contents: prompt
+                };
+
+                try {
+                    const response = await fetch(geminiApiEndpoint, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(requestBody)
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        const errorMessage = errorData.error?.message || response.statusText; // Try to get detailed error from JSON, fallback to statusText
+                        return { error: errorMessage }; // Return error message
+                    }
+
+                    const data = await response.json();
+                    // Assuming the text response is in candidates[0].content.parts[0].text
+                    const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                    return { textResponse }; // Return the text response
+
+                } catch (error) {
+                    return { error: error.message }; // Return error message for network or JSON parsing issues
+                }
+            }
+
+
+            function addMessageToChat(sender, message) {
+                const messageDiv = document.createElement('div');
+                messageDiv.classList.add('chat-message', sender); // Add classes 'chat-message' and 'user' or 'ai'
+                messageDiv.innerHTML = `<strong>${sender === 'user' ? 'You:' : 'AI:'}</strong> ${message}`;
+                chatHistoryDiv.appendChild(messageDiv);
+                chatHistoryDiv.scrollTop = chatHistoryDiv.scrollHeight; // Scroll to bottom
+            }
+
+
+            function extractChatAnswer(text) {
+                const startMarker = '[CHAT_ANSWER_START]';
+                const endMarker = '[CHAT_ANSWER_END]';
+                const startIndex = text.indexOf(startMarker);
+                const endIndex = text.indexOf(endMarker);
+
+                if (startIndex !== -1 && endIndex !== -1 && startIndex < endIndex) {
+                    return text.substring(startIndex + startMarker.length, endIndex).trim();
+                }
+                return null; // Chat answer markers not found or in incorrect order
+            }
+
+
+            function extractHTMLContent(text) {
+                const startMarker = '[HTML_START]';
+                const endMarker = '[HTML_END]';
+                const startIndex = text.indexOf(startMarker);
+                const endIndex = text.indexOf(endMarker);
+
+                if (startIndex !== -1 && endIndex !== -1 && startIndex < endIndex) {
+                    return text.substring(startIndex + startMarker.length, endIndex).trim();
+                }
+                return null; // HTML markers not found or in incorrect order
+            }
+
+
+            function renderHTML(htmlCode) {
+                if (htmlCode) {
+                    renderedHtmlDiv.innerHTML = htmlCode;
+                } else {
+                    renderedHtmlDiv.innerHTML = "<p>No renderable HTML found.</p>";
+                }
+            }
+
+            function saveHTMLRevision(htmlCode) {
+                if (htmlCode) {
+                    htmlRevisions.push(htmlCode);
+                }
+            }
+
+            function updateRevisionSelector() {
+                revisionSelect.innerHTML = '<option value="0">Current Revision</option>'; // Reset options, keep "Current Revision"
+                for (let i = 0; i < htmlRevisions.length; i++) {
+                    const option = document.createElement('option');
+                    option.value = i + 1; // Revision index starts from 1 in dropdown
+                    option.textContent = `Revision ${i + 1}`;
+                    revisionSelect.appendChild(option);
+                }
+                // Select the latest revision by default
+                revisionSelect.value = htmlRevisions.length > 0 ? htmlRevisions.length : 0;
+            }
+
+
+        });
+    </script>
+</body>
+</html>
