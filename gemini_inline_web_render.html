@@ -92,6 +92,7 @@
             border-radius: 4px;
             overflow: auto; /* Scroll if HTML content is too long */
             height: 300px; /* Match chat history height or adjust */
+            margin-right: 50px; /* Make space for the copy button */
         }
 
         .revision-selector {
@@ -101,6 +102,28 @@
         .revision-selector select {
             width: auto; /* Adjust to content width */
         }
+
+        #copy-html-button {
+            position: absolute; /* Position button to the right */
+            top: 75px; /* Adjust as needed to vertically align with the rendered HTML */
+            right: 25px; /* Distance from the right edge of the preview box */
+            padding: 8px 12px;
+            background-color: #555;
+            color: #eee;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            z-index: 10; /* Ensure button is above rendered HTML if needed */
+        }
+
+        #copy-html-button:hover {
+            background-color: #666;
+        }
+
+        .preview-box {
+            position: relative; /* Needed for absolute positioning of the copy button */
+        }
+
     </style>
 </head>
 <body>
@@ -141,6 +164,7 @@
                 <!-- Rendered HTML will be displayed here -->
                 <p>HTML output will appear here after generation.</p>
             </div>
+            <button id="copy-html-button">Copy HTML</button>
         </div>
     </div>
 
@@ -153,6 +177,7 @@
             const chatHistoryDiv = document.getElementById('chat-history');
             const renderedHtmlDiv = document.getElementById('rendered-html');
             const revisionSelect = document.getElementById('revision-select');
+            const copyHtmlButton = document.getElementById('copy-html-button'); // Get the new button
 
             let chatMessages = []; // Array to store chat history
             let htmlRevisions = []; // Array to store generated HTML revisions
@@ -178,6 +203,7 @@
                 try {
                     const aiResponse = await generateHTMLWithGemini(apiKey, model, userMessage); // Pass userMessage only, system prompt is handled inside
                     if (aiResponse && aiResponse.textResponse) { // Check if aiResponse and textResponse are valid
+			console.log(aiResponse.textResponse);
                         const chatAnswer = extractChatAnswer(aiResponse.textResponse);
                         const htmlCode = extractHTMLContent(aiResponse.textResponse);
 
@@ -221,15 +247,63 @@
                 }
             });
 
+            copyHtmlButton.addEventListener('click', () => {
+                const htmlCode = renderedHtmlDiv.innerHTML; // Get HTML from rendered div
+                navigator.clipboard.writeText(htmlCode)
+                    .then(() => {
+                        alert('HTML code copied to clipboard!'); // Simple feedback - consider better UI
+                    })
+                    .catch(err => {
+                        console.error('Failed to copy HTML: ', err);
+                        alert('Failed to copy HTML to clipboard.');
+                    });
+            });
+
 
             async function generateHTMLWithGemini(apiKey, model, userMessage) {
                 const geminiApiEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-                const systemPrompt = `You are an AI assistant specialized in generating single-page HTML content. When responding to user requests, please provide your output in two sections, clearly separated.
+                const systemPrompt = `You are a helpful and expert AI assistant specializing in generating serverless HTML code for single web pages based on user requests in a chat conversation. Your goal is to provide both the HTML code and insightful comments for each user request, ensuring the conversation flows naturally and builds upon previous turns if needed.
 
-First, provide a concise chat answer to the user's request. Mark the beginning of the chat answer with '[CHAT_ANSWER_START]' and the end with '[CHAT_ANSWER_END]'.
+**For each user request, you will respond with a structured output containing two parts, clearly separated by blocks:**
 
-Second, provide the single-page HTML code you generated. Mark the beginning of the HTML code with '[HTML_START]' and the end with '[HTML_END]'.`;
+**Part 1: HTML Content**
+
+*   Generate the HTML code as requested by the user. The HTML should be for a *single, self-contained web page*.
+*   Ensure the HTML is valid and well-structured (preferably HTML5).
+*   Focus on fulfilling the user's specific requirements for the page's content and structure as expressed in their current and previous messages in the conversation.
+*   If the user's request is ambiguous, make reasonable assumptions to create a functional HTML page and explain these assumptions in your comment (Part 2).
+*   If the user is asking for modifications to previous HTML, incorporate those changes into the new HTML output.
+*   Only output the raw HTML code *within the designated HTML block*. Do not include any introductory or explanatory text within this block.
+
+**Part 2: AI Comment**
+
+*   Provide a helpful comment about the generated HTML code.
+*   Explain the key features and elements of the HTML you generated.
+*   Justify your design choices and how they relate to the user's request(s).
+*   Suggest potential improvements, alternative approaches, or further enhancements the user could consider.
+*   Point out any important considerations, such as accessibility, responsiveness, or semantic HTML, if relevant.
+*   If you made any assumptions or had to interpret ambiguous requests, clearly state them in the comment.
+*   Keep the comment concise, informative, and directly related to the HTML content provided in Part 1.
+
+**Format your output for each turn as follows.  Use the specified blocks to enclose the HTML content and the AI comment:**
+[HTML_START]
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>Page Title</title>
+</head>
+<body>
+<!-- Your HTML code here -->
+<h1>Hello World!</h1>
+</body>
+</html>
+[HTML_END]
+[CHAT_ANSWER_START]
+This HTML creates a basic webpage with a title "Page Title" and a heading "Hello World!". It uses standard HTML5 structure. You could expand this by adding more content within the "<body>" section, styling with CSS, or adding interactive elements with JavaScript. Consider adding meta tags for better SEO.
+[CHAT_ANSWER_END]
+`;
 
 
                 const prompt = [
