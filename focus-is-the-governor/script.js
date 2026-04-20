@@ -81,6 +81,53 @@ const presets = {
   },
 };
 
+const milestoneBlueprint = [
+  {
+    key: "foundation",
+    label: "Foundation",
+    shortLabel: "Foundation",
+    featureCount: 4,
+    stageScope: 12,
+    scopeFactor: 0.95,
+    integrationWeight: 0.4,
+    parallelWeight: 0.3,
+    coordinationWeight: 0.2,
+  },
+  {
+    key: "core",
+    label: "Core workflows",
+    shortLabel: "Core",
+    featureCount: 8,
+    stageScope: 16,
+    scopeFactor: 1,
+    integrationWeight: 0.65,
+    parallelWeight: 0.45,
+    coordinationWeight: 0.35,
+  },
+  {
+    key: "candidate",
+    label: "Launch candidate",
+    shortLabel: "Candidate",
+    featureCount: 12,
+    stageScope: 22,
+    scopeFactor: 1.08,
+    integrationWeight: 0.95,
+    parallelWeight: 0.55,
+    coordinationWeight: 0.5,
+  },
+  {
+    key: "launch",
+    label: "Public launch",
+    shortLabel: "Launch",
+    featureCount: 16,
+    stageScope: 28,
+    scopeFactor: 1.18,
+    integrationWeight: 1.25,
+    parallelWeight: 0.7,
+    coordinationWeight: 0.65,
+  },
+];
+
 const refs = {
   contributors: document.querySelector("#contributors"),
   focus: document.querySelector("#focus"),
@@ -102,15 +149,7 @@ const refs = {
   agentFields: document.querySelector("#agentFields"),
   modeButtons: Array.from(document.querySelectorAll(".mode-button")),
   presetButtons: Array.from(document.querySelectorAll(".preset-card")),
-  velocityMetric: document.querySelector("#velocityMetric"),
-  serialMetric: document.querySelector("#serialMetric"),
-  serialCopy: document.querySelector("#serialCopy"),
-  efficiencyMetric: document.querySelector("#efficiencyMetric"),
-  peakMetric: document.querySelector("#peakMetric"),
-  peakCopy: document.querySelector("#peakCopy"),
-  pressureLabel: document.querySelector("#pressureLabel"),
-  pressureMetric: document.querySelector("#pressureMetric"),
-  pressureCopy: document.querySelector("#pressureCopy"),
+  milestoneGrid: document.querySelector("#milestoneGrid"),
   curveSummary: document.querySelector("#curveSummary"),
   serialBar: document.querySelector("#serialBar"),
   serialLegend: document.querySelector("#serialLegend"),
@@ -128,12 +167,26 @@ function formatPercent(value, digits = 1) {
   return `${value.toFixed(digits)}%`;
 }
 
-function formatFactor(value, digits = 2) {
-  return `${value.toFixed(digits)}x`;
-}
-
 function formatCount(value) {
   return new Intl.NumberFormat().format(Math.round(value));
+}
+
+function formatDurationWeeks(value) {
+  if (Math.abs(value) < 0.05) {
+    return "0 wks";
+  }
+
+  const digits = value < 10 ? 1 : 0;
+  const rounded = value.toFixed(digits);
+  return `${rounded} wk${Number(rounded) === 1 ? "" : "s"}`;
+}
+
+function formatDate(value) {
+  const today = todayAnchor();
+  const includeYear = value.getFullYear() !== today.getFullYear();
+  return new Intl.DateTimeFormat(undefined, includeYear
+    ? { month: "short", day: "numeric", year: "numeric" }
+    : { month: "short", day: "numeric" }).format(value);
 }
 
 function contributorLimit(mode) {
@@ -363,6 +416,83 @@ function peakSnapshot(series) {
   );
 }
 
+function todayAnchor() {
+  const today = new Date();
+  today.setHours(12, 0, 0, 0);
+  return today;
+}
+
+function addDays(date, days) {
+  return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
+}
+
+function buildMilestoneTimeline(snapshot, fullState) {
+  const startDate = todayAnchor();
+  let cumulativeWeeks = 0;
+
+  const milestones = milestoneBlueprint.map((stage, index) => {
+    const throughputWeeks =
+      (stage.stageScope * stage.scopeFactor) / Math.max(snapshot.speedup, 0.75);
+    const serialDelay = snapshot.serial * stage.integrationWeight * 4.2;
+    const workstreamDelay =
+      ((fullState.shared.workstreams - 1) / 11) * stage.parallelWeight * 1.5;
+    const coordinationDelay =
+      fullState.mode === "human"
+        ? Math.min(snapshot.meta.syncEdges / 720, 1.4) * stage.coordinationWeight
+        : (
+            Math.max(snapshot.meta.reviewLoad - 1, 0) * 2.1 +
+            Math.max(snapshot.meta.ownerSpan - 1, 0) * 0.45
+          ) * stage.coordinationWeight;
+    const finishTax = index * snapshot.serial * 0.9;
+    const stageWeeks = Math.max(
+      1,
+      throughputWeeks + serialDelay + workstreamDelay + coordinationDelay + finishTax
+    );
+
+    cumulativeWeeks += stageWeeks;
+
+    return {
+      ...stage,
+      stageWeeks,
+      cumulativeWeeks,
+      date: addDays(startDate, cumulativeWeeks * 7),
+    };
+  });
+
+  const publicLaunch = milestones[milestones.length - 1];
+  const launchCandidate = milestones[milestones.length - 2];
+
+  return {
+    startDate,
+    milestones,
+    publicLaunch,
+    launchCandidate,
+    averageCadence: publicLaunch.cumulativeWeeks / milestones.length,
+  };
+}
+
+function executionLoadSummary(snapshot) {
+  const componentKey = state.mode === "human" ? "coordination" : "judgment";
+  const component = snapshot.components.find((item) => item.key === componentKey);
+  const value = component ? component.value : 0;
+
+  if (state.mode === "human") {
+    return {
+      label: "Coordination load",
+      value,
+      copy:
+        "Share of total project execution absorbed by alignment, handoffs, and keeping the team in sync.",
+    };
+  }
+
+  return {
+    label: "Ownership load",
+    value,
+    copy:
+      "Share of total project execution absorbed by human ownership, review, and reconciliation loops.",
+  };
+}
+
 function syncInputsToState() {
   const modeState = state[state.mode];
   refs.contributors.max = String(contributorLimit(state.mode));
@@ -391,29 +521,91 @@ function syncInputsToState() {
   refs.reviewCapacityValue.textContent = formatCount(state.agent.reviewCapacity);
 }
 
-function renderMetrics(current, peak) {
-  refs.velocityMetric.textContent = formatFactor(current.speedup);
-  refs.serialMetric.textContent = formatPercent(current.serial * 100);
-  refs.serialCopy.textContent =
-    `If S froze here, the ceiling would be ${formatFactor(current.fixedCeiling, 1)}.`;
-  refs.efficiencyMetric.textContent = formatPercent(current.efficiency * 100);
-  refs.peakMetric.textContent = `${formatCount(peak.contributors)} ${modeUnit(
-    state.mode,
-    peak.contributors
-  )}`;
-  refs.peakCopy.textContent = `Peak velocity is ${formatFactor(peak.speedup)} on this curve.`;
+function renderMilestoneCards(snapshot, timeline, focusedSnapshot, focusedTimeline) {
+  refs.milestoneGrid.innerHTML = "";
 
-  if (state.mode === "human") {
-    refs.pressureLabel.textContent = "Potential sync edges";
-    refs.pressureMetric.textContent = formatCount(current.meta.syncEdges);
-    refs.pressureCopy.textContent =
-      "Pairwise alignment paths if everybody has to coordinate.";
+  timeline.milestones.forEach((milestone, index) => {
+    const focusedMilestone = focusedTimeline ? focusedTimeline.milestones[index] : null;
+    const deltaWeeks = focusedMilestone
+      ? milestone.cumulativeWeeks - focusedMilestone.cumulativeWeeks
+      : 0;
+    const deltaCopy =
+      focusedMilestone && deltaWeeks > 0.25
+        ? ` Focused path is ${formatDurationWeeks(deltaWeeks)} sooner.`
+        : "";
+    const card = document.createElement("article");
+    card.className = `metric-card milestone-card${
+      milestone.key === "launch" ? " is-highlight" : ""
+    }`;
+    card.innerHTML = `
+      <p class="metric-label">${milestone.label}</p>
+      <p class="metric-value">${formatDate(milestone.date)}</p>
+      <p class="metric-copy">
+        ${milestone.featureCount} features live in about ${formatDurationWeeks(
+      milestone.cumulativeWeeks
+    )}.${deltaCopy}
+      </p>
+    `;
+    refs.milestoneGrid.appendChild(card);
+  });
+
+  const loadSummary = executionLoadSummary(snapshot);
+  const focusedLoadSummary = focusedSnapshot
+    ? executionLoadSummary(focusedSnapshot)
+    : null;
+  const loadDelta = focusedLoadSummary
+    ? loadSummary.value - focusedLoadSummary.value
+    : 0;
+  const loadCard = document.createElement("article");
+  loadCard.className = "metric-card milestone-card is-load-card";
+  loadCard.innerHTML = `
+    <p class="metric-label">${loadSummary.label}</p>
+    <p class="metric-value">${formatPercent(loadSummary.value * 100)}</p>
+    <p class="metric-copy">
+      ${loadSummary.copy}${
+        focusedLoadSummary && loadDelta > 0.002
+          ? ` Focused path lowers it by ${formatPercent(loadDelta * 100)}.`
+          : ""
+      }
+    </p>
+  `;
+  refs.milestoneGrid.appendChild(loadCard);
+
+  const summaryCard = document.createElement("article");
+  const focusDividend = focusedTimeline
+    ? timeline.publicLaunch.cumulativeWeeks - focusedTimeline.publicLaunch.cumulativeWeeks
+    : 0;
+
+  summaryCard.className = "metric-card milestone-card";
+
+  if (focusedTimeline) {
+    const value = Math.abs(focusDividend) > 0.25
+      ? formatDurationWeeks(Math.abs(focusDividend))
+      : "Same window";
+    const direction =
+      focusDividend > 0.25
+        ? `Public launch moves from ${formatDate(
+            timeline.publicLaunch.date
+          )} to ${formatDate(focusedTimeline.publicLaunch.date)}.`
+        : focusDividend < -0.25
+          ? `The focused alternative actually slips launch to ${formatDate(
+              focusedTimeline.publicLaunch.date
+            )}.`
+          : "The focused alternative mostly smooths execution instead of changing the date.";
+    summaryCard.innerHTML = `
+      <p class="metric-label">Focus dividend</p>
+      <p class="metric-value">${value}</p>
+      <p class="metric-copy">${direction}</p>
+    `;
   } else {
-    refs.pressureLabel.textContent = "Review load";
-    refs.pressureMetric.textContent = formatPercent(current.meta.reviewLoad * 100, 0);
-    refs.pressureCopy.textContent =
-      "Agent output pressure versus declared human review capacity.";
+    summaryCard.innerHTML = `
+      <p class="metric-label">Milestone cadence</p>
+      <p class="metric-value">${formatDurationWeeks(timeline.averageCadence)}</p>
+      <p class="metric-copy">Average elapsed time between major feature milestones.</p>
+    `;
   }
+
+  refs.milestoneGrid.appendChild(summaryCard);
 }
 
 function renderBreakdown(snapshot) {
@@ -445,20 +637,23 @@ function renderBreakdown(snapshot) {
   });
 }
 
-function renderDiagnosis(current, peak, focusedPeak) {
-  const delta = focusedPeak ? focusedPeak.speedup - peak.speedup : 0;
-  let title = "Focus still buys you headroom";
+function renderDiagnosis(current, peak, timeline, focusedTimeline) {
+  const launch = timeline.publicLaunch;
+  const candidate = timeline.launchCandidate;
+  let title = "Launch timing still has room to compress";
 
   if (current.contributors > peak.contributors) {
-    title = "You are already past the efficient size for this setup";
-  } else if (current.contributors >= peak.contributors * 0.85) {
-    title = "You are close to saturation";
+    title = "More parallelism is now stretching the launch";
+  } else if (launch.cumulativeWeeks > 34) {
+    title = "The later milestones are absorbing most of the slip";
+  } else if (launch.cumulativeWeeks < 20) {
+    title = "This plan still fits in one focused arc";
   }
 
   refs.diagnosisTitle.textContent = title;
 
   const firstSentence =
-    `The largest source of drag is ${current.bottleneck.label.toLowerCase()}, contributing ${formatPercent(
+    `The biggest delay driver is ${current.bottleneck.label.toLowerCase()}, contributing ${formatPercent(
       current.bottleneck.value * 100
     )} to the serial fraction. ${current.bottleneck.recommendation}`;
 
@@ -467,60 +662,92 @@ function renderDiagnosis(current, peak, focusedPeak) {
       ? `At ${formatCount(current.contributors)} ${modeUnit(
           state.mode,
           current.contributors
-        )}, the coordination graph has ${formatCount(
-          current.meta.syncEdges
-        )} possible pairings.`
-      : `Your owners are covering ${current.meta.ownerSpan.toFixed(
+        )}, ${candidate.label.toLowerCase()} lands around ${formatDate(
+          candidate.date
+        )}, and public launch lands around ${formatDate(launch.date)} after about ${formatDurationWeeks(
+          launch.cumulativeWeeks
+        )}.`
+      : `At ${formatCount(current.contributors)} ${modeUnit(
+          state.mode,
+          current.contributors
+        )}, owners are covering ${current.meta.ownerSpan.toFixed(
           1
-        )} workstreams each on average, and review demand is at ${formatPercent(
+        )} workstreams each and review demand is at ${formatPercent(
           current.meta.reviewLoad * 100,
           0
-        )} of capacity.`;
+        )}, putting ${candidate.label.toLowerCase()} around ${formatDate(
+          candidate.date
+        )} and public launch around ${formatDate(launch.date)}.`;
 
-  const thirdSentence =
-    focusedPeak && delta > 0.05
-      ? `A tighter-focus version of the same setup moves the peak from ${formatCount(
-          peak.contributors
-        )} to ${formatCount(focusedPeak.contributors)} ${modeUnit(
-          state.mode,
-          focusedPeak.contributors
-        )} and raises peak velocity by ${formatFactor(delta)}.`
-      : "Tightening focus helps most when it removes actual serial work rather than just hiding it.";
+  let thirdSentence =
+    "The fastest way to pull the date in is to remove serial work between milestones, not simply add more parallel capacity.";
+
+  if (current.contributors > peak.contributors) {
+    thirdSentence = `This setup is already beyond its efficient size of ${formatCount(
+      peak.contributors
+    )} ${modeUnit(
+      state.mode,
+      peak.contributors
+    )}, so extra contributors are mostly pushing integration work into later milestones.`;
+  } else if (focusedTimeline) {
+    const launchDelta =
+      launch.cumulativeWeeks - focusedTimeline.publicLaunch.cumulativeWeeks;
+
+    thirdSentence =
+      launchDelta > 0.25
+        ? `A tighter-focus version pulls public launch forward by ${formatDurationWeeks(
+            launchDelta
+          )} and shortens the gap between launch candidate and launch.`
+        : "A tighter-focus version changes the quality of the ramp more than the date itself.";
+  }
 
   refs.diagnosisCopy.textContent = `${firstSentence} ${secondSentence} ${thirdSentence}`;
 }
 
-function renderCurveSummary(current, peak, focusedPeak) {
-  const headroom = peak.contributors - current.contributors;
-  const zoneText =
+function renderLaunchSummary(current, peak, timeline, focusedTimeline) {
+  const candidate = timeline.launchCandidate;
+  const launch = timeline.publicLaunch;
+  const saturationText =
     current.contributors > peak.contributors
-      ? `You are in negative scaling territory because the curve already peaked at ${formatCount(
+      ? ` You are already beyond the curve's efficient size of ${formatCount(
           peak.contributors
-        )} ${modeUnit(state.mode, peak.contributors)}.`
-      : `This setup tops out at ${formatCount(peak.contributors)} ${modeUnit(
+        )} ${modeUnit(state.mode, peak.contributors)}, so later milestones are slipping.`
+      : ` The current curve still peaks near ${formatCount(peak.contributors)} ${modeUnit(
           state.mode,
           peak.contributors
-        )}, leaving about ${formatCount(Math.max(headroom, 0))} more before the peak.`;
+        )}.`;
 
-  const focusedText =
-    focusedPeak && state.showFocusedPath
-      ? ` The tighter-focus path reaches ${formatFactor(
-          focusedPeak.speedup
-        )} and peaks at ${formatCount(focusedPeak.contributors)} ${modeUnit(
-          state.mode,
-          focusedPeak.contributors
-        )}.`
-      : "";
+  let focusedText = "";
 
-  refs.curveSummary.textContent = `${zoneText}${focusedText}`;
+  if (focusedTimeline && state.showFocusedPath) {
+    const launchDelta =
+      launch.cumulativeWeeks - focusedTimeline.publicLaunch.cumulativeWeeks;
+    focusedText =
+      Math.abs(launchDelta) > 0.25
+        ? launchDelta > 0
+          ? ` The tighter-focus alternative brings public launch forward by ${formatDurationWeeks(
+              launchDelta
+            )}.`
+          : ` The tighter-focus alternative slips launch by ${formatDurationWeeks(
+              Math.abs(launchDelta)
+            )}.`
+        : " The tighter-focus alternative lands in roughly the same launch window.";
+  }
+
+  refs.curveSummary.textContent = `${candidate.label} lands in about ${formatDurationWeeks(
+    candidate.cumulativeWeeks
+  )} and public launch in about ${formatDurationWeeks(
+    launch.cumulativeWeeks
+  )} if work started today.${saturationText}${focusedText}`;
 }
 
-function drawSeriesPath(context, series, xScale, yScale, stroke, fill, options = {}) {
+function drawTimelinePath(context, milestones, xScale, yScale, stroke, fill, options = {}) {
   context.save();
   context.beginPath();
-  series.forEach((point, index) => {
-    const x = xScale(point.contributors);
-    const y = yScale(point.speedup);
+
+  milestones.forEach((milestone, index) => {
+    const x = xScale(index);
+    const y = yScale(milestone.cumulativeWeeks);
 
     if (index === 0) {
       context.moveTo(x, y);
@@ -530,19 +757,19 @@ function drawSeriesPath(context, series, xScale, yScale, stroke, fill, options =
   });
 
   if (fill) {
-    const lastX = xScale(series[series.length - 1].contributors);
-    const firstX = xScale(series[0].contributors);
-    const bottom = yScale(0);
-    context.lineTo(lastX, bottom);
-    context.lineTo(firstX, bottom);
+    const lastX = xScale(milestones.length - 1);
+    const firstX = xScale(0);
+    const baseline = yScale(0);
+    context.lineTo(lastX, baseline);
+    context.lineTo(firstX, baseline);
     context.closePath();
     context.fillStyle = fill;
     context.fill();
 
     context.beginPath();
-    series.forEach((point, index) => {
-      const x = xScale(point.contributors);
-      const y = yScale(point.speedup);
+    milestones.forEach((milestone, index) => {
+      const x = xScale(index);
+      const y = yScale(milestone.cumulativeWeeks);
 
       if (index === 0) {
         context.moveTo(x, y);
@@ -562,7 +789,31 @@ function drawSeriesPath(context, series, xScale, yScale, stroke, fill, options =
   context.restore();
 }
 
-function drawChart(series, current, peak, focusedSeries, focusedPeak) {
+function drawTimelineMarkers(context, milestones, xScale, yScale, color, options = {}) {
+  context.save();
+  milestones.forEach((milestone, index) => {
+    const x = xScale(index);
+    const y = yScale(milestone.cumulativeWeeks);
+    const radius = index === milestones.length - 1 ? 6.5 : 5;
+
+    context.beginPath();
+    context.arc(x, y, radius, 0, Math.PI * 2);
+
+    if (options.hollow) {
+      context.fillStyle = "#fff";
+      context.strokeStyle = color;
+      context.lineWidth = 2.5;
+      context.fill();
+      context.stroke();
+    } else {
+      context.fillStyle = color;
+      context.fill();
+    }
+  });
+  context.restore();
+}
+
+function drawChart(timeline, focusedTimeline) {
   const canvas = refs.chart;
   const context = canvas.getContext("2d");
   const devicePixelRatio = window.devicePixelRatio || 1;
@@ -573,98 +824,110 @@ function drawChart(series, current, peak, focusedSeries, focusedPeak) {
   context.scale(devicePixelRatio, devicePixelRatio);
   context.clearRect(0, 0, width, height);
 
-  const padding = { top: 24, right: 22, bottom: 36, left: 56 };
+  const padding = { top: 24, right: 26, bottom: 52, left: 64 };
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
-  const maxContributors = contributorLimit(state.mode);
-  const maxSpeedup = Math.max(
-    peak.speedup,
-    focusedPeak ? focusedPeak.speedup : 0,
-    1.2
+  const maxWeeks = Math.max(
+    timeline.publicLaunch.cumulativeWeeks,
+    focusedTimeline ? focusedTimeline.publicLaunch.cumulativeWeeks : 0,
+    8
   );
 
-  const xScale = (value) =>
-    padding.left + ((value - 1) / (maxContributors - 1)) * chartWidth;
+  const xScale = (index) =>
+    padding.left + (index / Math.max(timeline.milestones.length - 1, 1)) * chartWidth;
   const yScale = (value) =>
-    padding.top + chartHeight - (value / (maxSpeedup * 1.08)) * chartHeight;
+    padding.top + chartHeight - (value / (maxWeeks * 1.08)) * chartHeight;
 
   context.strokeStyle = "rgba(31, 36, 48, 0.12)";
   context.fillStyle = "rgba(94, 102, 114, 0.9)";
   context.font = '12px Aptos, "Segoe UI", sans-serif';
 
   for (let step = 0; step <= 4; step += 1) {
-    const value = (maxSpeedup * step) / 4;
+    const value = (maxWeeks * step) / 4;
     const y = yScale(value);
     context.beginPath();
     context.moveTo(padding.left, y);
     context.lineTo(width - padding.right, y);
     context.stroke();
-    context.fillText(value.toFixed(1), 18, y + 4);
-  }
-
-  [1, Math.round(maxContributors / 2), maxContributors].forEach((value) => {
-    const x = xScale(value);
-    context.fillText(String(value), x - 8, height - 10);
-  });
-
-  const negativeStartX = xScale(peak.contributors);
-  context.fillStyle = "rgba(180, 61, 49, 0.08)";
-  context.fillRect(
-    negativeStartX,
-    padding.top,
-    width - padding.right - negativeStartX,
-    chartHeight
-  );
-
-  const fillGradient = context.createLinearGradient(0, padding.top, 0, height);
-  fillGradient.addColorStop(0, "rgba(212, 95, 58, 0.18)");
-  fillGradient.addColorStop(1, "rgba(212, 95, 58, 0.01)");
-  drawSeriesPath(context, series, xScale, yScale, palette.focus, fillGradient);
-
-  if (state.showFocusedPath && focusedSeries) {
-    drawSeriesPath(context, focusedSeries, xScale, yScale, palette.coupling, null, {
-      dashed: true,
-      lineWidth: 2.5,
-    });
+    context.fillText(formatDurationWeeks(value), 12, y + 4);
   }
 
   context.save();
-  context.setLineDash([4, 6]);
-  context.strokeStyle = "rgba(31, 36, 48, 0.3)";
+  context.textAlign = "center";
+  context.fillStyle = "rgba(31, 36, 48, 0.8)";
+  timeline.milestones.forEach((milestone, index) => {
+    context.fillText(milestone.shortLabel, xScale(index), height - 16);
+  });
+  context.restore();
+
+  context.save();
+  context.strokeStyle = "rgba(31, 36, 48, 0.22)";
   context.beginPath();
-  context.moveTo(xScale(peak.contributors), padding.top);
-  context.lineTo(xScale(peak.contributors), height - padding.bottom);
+  context.moveTo(padding.left, yScale(0));
+  context.lineTo(width - padding.right, yScale(0));
   context.stroke();
   context.restore();
 
-  const currentX = xScale(current.contributors);
-  const currentY = yScale(current.speedup);
-  context.fillStyle = palette.focus;
-  context.beginPath();
-  context.arc(currentX, currentY, 5.5, 0, Math.PI * 2);
-  context.fill();
+  const fillGradient = context.createLinearGradient(0, padding.top, 0, height);
+  fillGradient.addColorStop(0, "rgba(212, 95, 58, 0.2)");
+  fillGradient.addColorStop(1, "rgba(212, 95, 58, 0.01)");
+  drawTimelinePath(
+    context,
+    timeline.milestones,
+    xScale,
+    yScale,
+    palette.focus,
+    fillGradient
+  );
+  drawTimelineMarkers(context, timeline.milestones, xScale, yScale, palette.focus);
 
-  const peakX = xScale(peak.contributors);
-  const peakY = yScale(peak.speedup);
-  context.fillStyle = "#fff";
-  context.strokeStyle = palette.focus;
-  context.lineWidth = 3;
-  context.beginPath();
-  context.arc(peakX, peakY, 6.5, 0, Math.PI * 2);
-  context.fill();
-  context.stroke();
+  if (state.showFocusedPath && focusedTimeline) {
+    drawTimelinePath(
+      context,
+      focusedTimeline.milestones,
+      xScale,
+      yScale,
+      palette.coupling,
+      null,
+      {
+        dashed: true,
+        lineWidth: 2.5,
+      }
+    );
+    drawTimelineMarkers(
+      context,
+      focusedTimeline.milestones,
+      xScale,
+      yScale,
+      palette.coupling,
+      { hollow: true }
+    );
+  }
 
+  const currentLaunchX = xScale(timeline.milestones.length - 1);
+  const currentLaunchY = yScale(timeline.publicLaunch.cumulativeWeeks);
+  context.save();
+  context.textAlign = "right";
   context.fillStyle = "rgba(31, 36, 48, 0.9)";
-  context.fillText(`peak ${peak.contributors}`, peakX + 8, peakY - 10);
+  context.fillText(
+    `launch ${formatDate(timeline.publicLaunch.date)}`,
+    currentLaunchX - 8,
+    currentLaunchY - 12
+  );
+  context.restore();
 
-  if (state.showFocusedPath && focusedPeak) {
-    const focusedX = xScale(focusedPeak.contributors);
-    const focusedY = yScale(focusedPeak.speedup);
+  if (state.showFocusedPath && focusedTimeline) {
+    const focusedLaunchX = xScale(focusedTimeline.milestones.length - 1);
+    const focusedLaunchY = yScale(focusedTimeline.publicLaunch.cumulativeWeeks);
+    context.save();
+    context.textAlign = "right";
     context.fillStyle = palette.coupling;
-    context.beginPath();
-    context.arc(focusedX, focusedY, 5.5, 0, Math.PI * 2);
-    context.fill();
-    context.fillText(`focused ${focusedPeak.contributors}`, focusedX + 8, focusedY + 18);
+    context.fillText(
+      `focused ${formatDate(focusedTimeline.publicLaunch.date)}`,
+      focusedLaunchX - 8,
+      focusedLaunchY + 20
+    );
+    context.restore();
   }
 }
 
@@ -674,23 +937,27 @@ function render() {
 
   const currentContributors = state[state.mode].contributors;
   const current = buildSnapshot(state.mode, currentContributors, state);
-  const series = buildSeries(state.mode, state);
-  const peak = peakSnapshot(series);
+  const peak = peakSnapshot(buildSeries(state.mode, state));
+  const timeline = buildMilestoneTimeline(current, state);
 
-  let focusedSeries = null;
-  let focusedPeak = null;
+  let focusedCurrent = null;
+  let focusedTimeline = null;
 
   if (state.showFocusedPath) {
     const focusedState = focusedVariant(state);
-    focusedSeries = buildSeries(state.mode, focusedState);
-    focusedPeak = peakSnapshot(focusedSeries);
+    focusedCurrent = buildSnapshot(
+      state.mode,
+      currentContributors,
+      focusedState
+    );
+    focusedTimeline = buildMilestoneTimeline(focusedCurrent, focusedState);
   }
 
-  renderMetrics(current, peak);
+  renderMilestoneCards(current, timeline, focusedCurrent, focusedTimeline);
   renderBreakdown(current);
-  renderDiagnosis(current, peak, focusedPeak);
-  renderCurveSummary(current, peak, focusedPeak);
-  drawChart(series, current, peak, focusedSeries, focusedPeak);
+  renderDiagnosis(current, peak, timeline, focusedTimeline);
+  renderLaunchSummary(current, peak, timeline, focusedTimeline);
+  drawChart(timeline, focusedTimeline);
 }
 
 function applyPreset(presetName) {

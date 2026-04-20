@@ -5,14 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta
       name="description"
-      content="An interactive simulator of project velocity inspired by Aravind Krishnaswamy's essay on focus, Amdahl's Law, and agent-powered teams."
+      content="An interactive simulator that turns focus, coordination, and review drag into expected launch dates for feature milestones."
     >
     <meta name="theme-color" content="#d45f3a">
     <link rel="canonical" href="https://nedn.github.io/focus-is-the-governor/">
     <meta property="og:title" content="Focus Is the Governor">
     <meta
       property="og:description"
-      content="Explore how focus, coordination, structural coupling, and review bottlenecks cap project velocity for teams and agents."
+      content="Explore how focus, coordination, structural coupling, and review bottlenecks shift the launch dates for feature milestones."
     >
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://nedn.github.io/focus-is-the-governor/">
@@ -23,11 +23,12 @@
     <div class="page-shell">
       <header class="hero panel">
         <div class="hero-copy">
-          <p class="eyebrow">Project velocity simulator</p>
+          <p class="eyebrow">Feature milestone simulator</p>
           <h1>Focus Is the Governor</h1>
           <p class="lede">
             A client-side simulator inspired by Aravind Krishnaswamy's essay on how
-            serial work caps velocity for both growing teams and agent fleets.
+            serial work shifts launch dates for successive feature milestones across
+            human teams and agent fleets.
           </p>
         </div>
         <div class="hero-meta">
@@ -50,7 +51,7 @@
             <h2>Shape the system</h2>
             <p class="section-copy">
               Move the sliders to see how focus, sprawl, coupling, and human review
-              bandwidth change the serial fraction.
+              bandwidth change the expected launch date for each milestone.
             </p>
           </div>
 
@@ -171,70 +172,43 @@
           </div>
         </section>
 
+        <section class="panel chart-panel">
+          <div class="panel-heading compact">
+            <p class="section-kicker">Timeline</p>
+            <h2>Projected launch path</h2>
+            <p class="section-copy" id="curveSummary">
+              Compare the current setup with a tighter-focus alternative to see how milestone dates move.
+            </p>
+          </div>
+          <canvas id="velocityChart" height="360" aria-label="Milestone launch timeline chart"></canvas>
+          <div class="chart-legend">
+            <span class="legend-chip">
+              <span class="legend-swatch current"></span>
+              Current setup
+            </span>
+            <span class="legend-chip" id="focusedLegend">
+              <span class="legend-swatch focused"></span>
+              Tighter-focus alternative
+            </span>
+          </div>
+        </section>
+
         <section class="output-column">
           <section class="panel metrics-panel">
             <div class="panel-heading compact">
-              <p class="section-kicker">Outputs</p>
-              <h2>Current state</h2>
-            </div>
-            <div class="metrics-grid">
-              <article class="metric-card">
-                <p class="metric-label">Velocity index</p>
-                <p class="metric-value" id="velocityMetric">0.00x</p>
-                <p class="metric-copy">Relative throughput versus one contributor.</p>
-              </article>
-              <article class="metric-card">
-                <p class="metric-label">Serial fraction</p>
-                <p class="metric-value" id="serialMetric">0%</p>
-                <p class="metric-copy" id="serialCopy">The hard cap on useful parallelism.</p>
-              </article>
-              <article class="metric-card">
-                <p class="metric-label">Per-contributor efficiency</p>
-                <p class="metric-value" id="efficiencyMetric">0%</p>
-                <p class="metric-copy">How much of each added contributor survives drag.</p>
-              </article>
-              <article class="metric-card">
-                <p class="metric-label">Peak size</p>
-                <p class="metric-value" id="peakMetric">0</p>
-                <p class="metric-copy" id="peakCopy">Where the current curve tops out.</p>
-              </article>
-              <article class="metric-card">
-                <p class="metric-label" id="pressureLabel">Potential sync edges</p>
-                <p class="metric-value" id="pressureMetric">0</p>
-                <p class="metric-copy" id="pressureCopy">Pairwise alignment paths if everyone must sync.</p>
-              </article>
-            </div>
-          </section>
-
-          <section class="panel chart-panel">
-            <div class="panel-heading compact">
-              <p class="section-kicker">Curve</p>
-              <h2>Velocity by contributor count</h2>
-              <p class="section-copy" id="curveSummary">
-                The curve peaks when added parallel capacity is outweighed by serial work.
+              <p class="section-kicker">Forecast</p>
+              <h2>Expected milestone timing</h2>
+              <p class="section-copy">
+                Each card shows when that feature milestone is likely to land if work started today.
               </p>
             </div>
-            <canvas id="velocityChart" height="360" aria-label="Velocity curve chart"></canvas>
-            <div class="chart-legend">
-              <span class="legend-chip">
-                <span class="legend-swatch current"></span>
-                Current setup
-              </span>
-              <span class="legend-chip" id="focusedLegend">
-                <span class="legend-swatch focused"></span>
-                Tighter-focus alternative
-              </span>
-              <span class="legend-chip">
-                <span class="legend-swatch danger"></span>
-                Negative scaling zone
-              </span>
-            </div>
+            <div class="metrics-grid" id="milestoneGrid"></div>
           </section>
 
           <section class="panel breakdown-panel">
             <div class="panel-heading compact">
-              <p class="section-kicker">Serial mix</p>
-              <h2>Where the drag comes from</h2>
+              <p class="section-kicker">Delay mix</p>
+              <h2>What is stretching the schedule</h2>
             </div>
             <div class="serial-bar" id="serialBar" aria-hidden="true"></div>
             <div class="legend-list" id="serialLegend"></div>
@@ -243,7 +217,7 @@
           <section class="panel diagnosis-panel">
             <div class="panel-heading compact">
               <p class="section-kicker">Diagnosis</p>
-              <h2 id="diagnosisTitle">Focus still buys you headroom</h2>
+              <h2 id="diagnosisTitle">Launch timing still responds to focus</h2>
             </div>
             <p class="diagnosis-copy" id="diagnosisCopy"></p>
           </section>
@@ -251,9 +225,9 @@
       </main>
 
       <footer class="footer-note">
-        This is an illustrative heuristic model, not a predictive org science tool. The
-        point is to make the serial fraction visible so you can see why "more people" or
-        "more agents" often fails without tighter focus and clearer ownership.
+        This is an illustrative heuristic model, not a predictive launch planner. The
+        point is to make serial work visible so you can see why "more people" or "more
+        agents" often pushes later milestones out unless focus and ownership improve.
       </footer>
     </div>
 
